@@ -1,0 +1,21 @@
+/build/
+/artifacts/
+/dist/
+/.vs/
+*.user
+*.suo
+
+# Local configuration, diagnostics and credentials
+*.log
+.env
+.env.*
+!.env.example
+settings.dat*
+*.dmp
+__pycache__/
+*.pyc
+
+# Historical workstation investigations; current public docs are kept separately.
+/docs/VALIDATION*.md
+/docs/GLASS-REFERENCES.md
+/docs/OPEN_SOURCE_REFERENCES.md

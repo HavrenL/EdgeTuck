@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>轻屉 · 玻璃材质实验</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#e7eeec;color:#203933;font-family:"Segoe UI","Microsoft YaHei",sans-serif}button,input,select{font:inherit}button,select{cursor:pointer}header{height:84px;display:flex;align-items:center;justify-content:space-between;padding:0 32px;background:#f8faf8;border-bottom:1px solid #d9e3df}h1{font-size:22px;font-weight:650;margin:0}header p{margin:5px 0 0;font-size:12px;color:#6a8179}.tag{font-size:12px;padding:7px 13px;border:1px solid #d1ded8;border-radius:20px;color:#567368}main{display:grid;grid-template-columns:1fr 300px;height:calc(100vh - 84px);min-height:590px}.stage{position:relative;overflow:hidden;min-width:0}canvas{display:block;width:100%;height:100%}.caption{position:absolute;top:22px;left:0;width:50%;text-align:center;color:white;font-weight:600;text-shadow:0 1px 6px #173c52}.caption.right{left:50%}.caption small{display:block;font-size:11px;font-weight:400;opacity:.8;margin-top:5px}.divider{position:absolute;top:0;bottom:0;left:50%;width:1px;background:#ffffff30;pointer-events:none}.drawer{position:absolute;top:22%;width:39%;height:55%;left:5.5%;padding:25px 21px;pointer-events:none;color:white;text-shadow:0 1px 3px #14374066}.drawer.right{left:55.5%}.drawer h2{font-size:21px;margin:0 0 6px}.drawer p{font-size:11px;margin:0;opacity:.7}.icons{display:grid;grid-template-columns:repeat(3,1fr);gap:24px 9px;margin-top:33px;text-align:center}.icon{font-size:11px}.icon b{display:flex;align-items:center;justify-content:center;width:41px;height:41px;margin:0 auto 9px;background:#ffffffe8;color:#287a62;border-radius:12px;text-shadow:none;font-size:20px;font-weight:500}.icon:nth-child(2) b{color:#b37f36}.icon:nth-child(3) b{color:#4e8ab3}.icon:nth-child(4) b{color:#906d9f}.drag-note{position:absolute;bottom:14px;left:22px;right:22px;font-size:11px;opacity:.7;border-top:1px solid #ffffff25;padding-top:12px}.bottom-note{position:absolute;bottom:18px;left:20px;right:20px;text-align:center;font-size:11px;color:#fff9;text-shadow:0 1px 4px #102738}aside{background:#f8faf8;padding:25px 23px;overflow:auto;border-left:1px solid #d9e3df}aside h2{font-size:14px;margin:0 0 14px}.presets{display:flex;gap:6px;margin-bottom:25px}.presets button{flex:1;padding:8px 0;font-size:12px;border-radius:8px;border:1px solid #d5e0da;background:white;color:#5c7065}.presets button.active{background:#285d49;color:white;border-color:#285d49}.control{margin:19px 0}.label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:9px}.value{font-variant-numeric:tabular-nums;color:#819088}input[type=range]{width:100%;height:4px;accent-color:#386c54;cursor:pointer}.help{font-size:11px;line-height:1.8;color:#7c8b82;margin:8px 0 22px}select{width:100%;background:white;color:#405c4e;padding:9px;border:1px solid #d4dfd9;border-radius:8px;font-size:12px}.upload{display:block;font-size:12px;text-align:center;padding:10px;margin:8px 0 21px;border:1px dashed #b9ccc0;border-radius:8px;cursor:pointer}.upload input{display:none}.toggles label{display:flex;gap:7px;align-items:center;font-size:12px;margin:12px 0}.toggles input{accent-color:#356b52}.source{font-size:11px;line-height:1.9;border-top:1px solid #dce5df;padding-top:14px;color:#829084}.source a{color:#4a705c;text-decoration:none}.error{position:absolute;inset:0;background:#f6f8f4;padding:60px;color:#9b4a40;display:none}.status{font-size:10px;color:#91a094;margin-top:8px}@media(max-width:1000px){main{grid-template-columns:1fr 260px}.drawer{padding:22px 14px}.icons{grid-template-columns:repeat(2,1fr);gap:20px 5px}.icon:nth-child(n+5){display:none}header{padding:0 22px}}
+</style>
+<header><div><h1>轻屉 · 玻璃材质实验</h1><p>在同一张背景上，比较模糊、透光和边缘光学效果</p></div><span class="tag">独立预览 · 尚未接入桌面</span></header>
+<main><section class="stage" id="stage"><canvas id="view"></canvas><div class="divider"></div><div class="caption">磨砂对照<small>较强模糊 · 弱化背景细节</small></div><div class="caption right">光学玻璃<small>轻度模糊 · 曲面折射 · 细微色散</small></div>
+<div class="drawer"><h2>日常</h2><p>让桌面留给风景</p><div class="icons"><div class="icon"><b>▤</b>文档</div><div class="icon"><b>◈</b>图片</div><div class="icon"><b>♫</b>音乐</div><div class="icon"><b>✦</b>灵感</div><div class="icon"><b>▧</b>项目</div><div class="icon"><b>⚙</b>轻屉设置</div></div><div class="drag-note">拖动右侧玻璃，观察背景如何弯曲</div></div>
+<div class="drawer right" id="sample"></div><div class="bottom-note">对照效果为实验示意，不是当前桌面程序的截图。图片仅在本机浏览器中处理。</div><div class="error" id="error"></div></section>
+<aside><h2>选择观感</h2><div class="presets"><button data-preset="clear" class="active">清透</button><button data-preset="soft">柔和</button><button data-preset="crystal">晶亮</button></div>
+<div class="control"><div class="label">背景模糊 <span class="value" id="blurValue"></span></div><input id="blur" type="range" min="0" max="6" step="0.1" value="1.2"></div>
+<div class="control"><div class="label">边缘弯曲 <span class="value" id="depthValue"></span></div><input id="depth" type="range" min="0" max="36" step="1" value="18"></div>
+<div class="control"><div class="label">边缘亮度 <span class="value" id="lightValue"></span></div><input id="light" type="range" min="0" max="1.5" step="0.05" value="0.75"></div>
+<div class="control"><div class="label">细微色散 <span class="value" id="dispersionValue"></span></div><input id="dispersion" type="range" min="0" max="2" step="0.05" value="0.55"></div>
+<p class="help">模糊决定保留多少细节；弯曲、亮带和细微色散共同表达玻璃的厚度。调低模糊时，边缘效果依然存在。</p>
+<h2>比较背景</h2><select id="background"><option value="landscape">彩色风景</option><option value="grid">网格与色块</option><option value="text">文字与细线</option></select><label class="upload">选择自己的壁纸<input id="upload" type="file" accept="image/*"></label>
+<div class="toggles"><label><input id="refraction" type="checkbox" checked>曲面折射</label><label><input id="lighting" type="checkbox" checked>边缘反光与柔和散射</label><label><input id="chromatic" type="checkbox" checked>细微色散</label></div>
+<p class="source">数学思路参考 <a href="https://github.com/iyinchao/liquid-glass-studio" target="_blank" rel="noreferrer">liquid-glass-studio</a> 与 <a href="https://kube.io/blog/liquid-glass-css-svg/" target="_blank" rel="noreferrer">kube.io</a>。这是独立实现的材质实验，使用生成背景或本机图片，尚未验证真实桌面采集成本。</p><div class="status" id="status">初始化渲染…</div></aside></main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id), canvas=$('view'), stage=$('stage');
+$('sample').innerHTML=document.querySelector('.drawer').innerHTML;
+const gl=canvas.getContext('webgl2',{alpha:false,antialias:false,preserveDrawingBuffer:true});
+function fail(message){$('error').style.display='block';$('error').textContent=message;window.labError=message;throw Error(message);}
+if(!gl)fail('此浏览器未能启用 WebGL 2。请使用启用硬件加速的 Chrome 或 Edge 打开。');
+const vs=`#version 300 es
+out vec2 uv;
+void main(){vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);uv=p;gl_Position=vec4(p*2.-1.,0,1);}`;
+const fs=`#version 300 es
+precision highp float;
+in vec2 uv;out vec4 color;
+uniform sampler2D source,frostSource,glassSource,scatterSource;uniform vec2 resolution;uniform vec4 panel;
+uniform float pixelRatio,blurAmount,depth,lightAmount,dispersion;
+uniform vec3 enabled;
+vec3 raw(vec2 p){vec2 q=vec2(mod(p.x,resolution.x*.5)/(resolution.x*.5),p.y/resolution.y);return texture(source,clamp(q,vec2(.001),vec2(.999))).rgb;}
+// Cached Gaussian-blurred source fields are prepared before refraction. Every
+// wavelength samples that same image through a slightly different bent ray.
+vec3 softened(vec2 p,float sigma){vec2 q=clamp(vec2(mod(p.x,resolution.x*.5)/(resolution.x*.5),p.y/resolution.y),vec2(.001),vec2(.999));
+ if(p.x<resolution.x*.5)return texture(frostSource,q).rgb;
+ if(sigma>blurAmount+1.)return texture(scatterSource,q).rgb;
+ return texture(glassSource,q).rgb;}
+void main(){vec2 p=vec2(uv.x,1.-uv.y)*resolution;bool optical=p.x>=resolution.x*.5;
+ vec2 center=panel.xy;if(!optical)center.x-=resolution.x*.5;
+ vec2 halfSize=panel.zw*.5;float radius=28.*pixelRatio;
+ vec2 v=p-center,q=abs(v)-halfSize+radius,o=max(q,0.);
+ float d=length(o)+min(max(q.x,q.y),0.)-radius;
+ vec3 bg=raw(p);if(d>2.*pixelRatio){color=vec4(bg,1);return;}
+ float aa=max(fwidth(d),.7),inside=1.-smoothstep(-aa,aa,d),inset=max(-d,0.);
+ if(!optical){vec3 frost=mix(softened(p,6.),vec3(.88,.94,.95),.10);color=vec4(mix(bg,frost,inside),1);return;}
+ vec2 normal=length(o)>.0001?normalize(o):(q.x>q.y?vec2(1,0):vec2(0,1));normal*=sign(v);
+ float t=clamp(1.-inset/(24.*pixelRatio),0.,.998);
+ float slope=pow(t,3.)/sqrt(max(1.-pow(t,4.),.015));
+ vec3 n=normalize(vec3(normal*slope*2.4,1.));
+ vec3 ray=refract(vec3(0,0,-1),n,1./1.48);
+ vec2 offset=ray.xy/max(abs(ray.z),.15)*depth*pixelRatio*enabled.x;
+ vec2 at=p+offset;float chroma=dispersion*pixelRatio*t*t*enabled.z;
+ vec3 glass=vec3(softened(at+normal*chroma,blurAmount).r,softened(at,blurAmount).g,softened(at-normal*chroma,blurAmount).b);
+ float fresnel=pow(1.-n.z,5.);
+ vec3 l=normalize(vec3(-.65,-.75,.6));
+ // Anchor the reflection to the silhouette. A half-vector specular lobe on
+ // the bevel peaks inside the panel and draws a second parallel bright line.
+ float rim=exp(-inset/(1.5*pixelRatio));
+ float spec=rim*(pow(max(dot(normal,normalize(l.xy)),0.),8.)
+                +.45*pow(max(dot(normal,normalize(vec2(.6,.7))),0.),8.));
+ float grazing=(.35+.65*pow(abs(dot(normal,normalize(l.xy))),3.))*fresnel;
+ float shine=(spec*.55+grazing*.35)*lightAmount*enabled.y;
+ // Scattering stays weak; all reflection terms fade inward from one rim.
+ glass=mix(glass,softened(at,blurAmount+2.),.065*t*enabled.y);
+ glass+=vec3(.86,.95,1.)*shine;
+ glass-=vec3(.10,.13,.15)*fresnel*(1.-max(dot(normal,l.xy),0.))*enabled.y;
+ float lip=exp(-inset/(.65*pixelRatio))*(.10+.28*max(dot(normal,normalize(l.xy)),0.))*lightAmount*enabled.y;
+ glass+=lip;glass=clamp(glass,0.,1.);
+ color=vec4(mix(bg,glass,inside),1);}`;
+function shader(kind,code){const s=gl.createShader(kind);gl.shaderSource(s,code);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))fail(gl.getShaderInfoLog(s));return s;}
+const program=gl.createProgram();gl.attachShader(program,shader(gl.VERTEX_SHADER,vs));gl.attachShader(program,shader(gl.FRAGMENT_SHADER,fs));gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))fail(gl.getProgramInfoLog(program));gl.useProgram(program);
+const locations={};for(const key of ['source','frostSource','glassSource','scatterSource','resolution','panel','pixelRatio','blurAmount','depth','lightAmount','dispersion','enabled'])locations[key]=gl.getUniformLocation(program,key);
+const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+const blurredFields=[1,2,3].map(unit=>{const texture=gl.createTexture(),canvas=document.createElement('canvas');gl.activeTexture(gl.TEXTURE0+unit);gl.bindTexture(gl.TEXTURE_2D,texture);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);return{unit,texture,canvas,context:canvas.getContext('2d')};});
+gl.activeTexture(gl.TEXTURE0);let blurKey='',backgroundVersion=0;
+const bgCanvas=document.createElement('canvas');bgCanvas.width=900;bgCanvas.height=1100;const ctx=bgCanvas.getContext('2d');let uploaded=null;
+function background(){const w=bgCanvas.width,h=bgCanvas.height;ctx.clearRect(0,0,w,h);
+ if(uploaded){const s=Math.max(w/uploaded.width,h/uploaded.height);ctx.drawImage(uploaded,(w-uploaded.width*s)/2,(h-uploaded.height*s)/2,uploaded.width*s,uploaded.height*s);}
+ else{let g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,'#104367');g.addColorStop(.5,'#529eb0');g.addColorStop(1,'#d3c6a2');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+ if($('background').value==='landscape'){
+  let glow=ctx.createRadialGradient(640,275,1,640,275,250);glow.addColorStop(0,'#fff6d7cc');glow.addColorStop(1,'#fff6d700');ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);ctx.fillStyle='#f8d497';ctx.beginPath();ctx.arc(640,275,70,0,Math.PI*2);ctx.fill();
+  const hills=[['#35686a',620,100],['#5d795b',735,140],['#839374',845,95],['#b9ab83',980,120]];for(const [color,y,a] of hills){ctx.fillStyle=color;ctx.beginPath();ctx.moveTo(0,h);ctx.lineTo(0,y);for(let x=0;x<=w;x+=4)ctx.lineTo(x,y+Math.sin(x/160+y)*a+Math.cos(x/320)*a*.4);ctx.lineTo(w,h);ctx.fill();}
+  ctx.strokeStyle='#dcebb588';ctx.lineWidth=10;ctx.beginPath();ctx.moveTo(220,1100);ctx.bezierCurveTo(800,930,160,800,850,620);ctx.stroke();
+ }else{ctx.lineWidth=1;ctx.strokeStyle='#ffffff55';for(let x=0;x<w;x+=35){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}for(let y=0;y<h;y+=35){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+  ctx.fillStyle='#ebbb55';ctx.fillRect(110,240,170,330);ctx.fillStyle='#ec7b65';ctx.beginPath();ctx.arc(660,620,135,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#e2f2f4';ctx.lineWidth=14;ctx.beginPath();ctx.moveTo(0,70);ctx.lineTo(w,h-100);ctx.stroke();
+  if($('background').value==='text'){ctx.fillStyle='#eef4eb';ctx.font='24px Segoe UI';for(let y=175;y<h;y+=70)ctx.fillText('EdgeTuck  /  light, colour & glass',60,y);}}
+ }gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,bgCanvas);backgroundVersion++;schedule();}
+let pending=false,renders=0,shift={x:0,y:0};const keys=['blur','depth','light','dispersion'];
+function schedule(){if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;render();});}
+function render(){const ratio=Math.min(devicePixelRatio,2),w=Math.round(stage.clientWidth*ratio),h=Math.round(stage.clientHeight*ratio);if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+ const key=[w,h,$('blur').value,backgroundVersion].join('/');if(key!==blurKey){for(const field of blurredFields){field.canvas.width=Math.ceil(w/2);field.canvas.height=h;const context=field.context,sigma=field.unit===1?6:+$('blur').value+(field.unit===3?2:0);context.filter=`blur(${sigma*ratio}px)`;context.drawImage(bgCanvas,0,0,field.canvas.width,h);gl.activeTexture(gl.TEXTURE0+field.unit);gl.bindTexture(gl.TEXTURE_2D,field.texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,field.canvas);}blurKey=key;}
+ gl.viewport(0,0,w,h);gl.useProgram(program);gl.uniform1i(locations.source,0);gl.uniform1i(locations.frostSource,1);gl.uniform1i(locations.glassSource,2);gl.uniform1i(locations.scatterSource,3);gl.uniform2f(locations.resolution,w,h);gl.uniform1f(locations.pixelRatio,ratio);gl.uniform4f(locations.panel,w*.75+shift.x*ratio,h*.495+shift.y*ratio,w*.39,h*.55);
+ for(const [key,name]of [['blur','blurAmount'],['depth','depth'],['light','lightAmount'],['dispersion','dispersion']]){gl.uniform1f(locations[name],+$(key).value);$(key+'Value').textContent=Number($(key).value).toFixed(1);}
+ gl.uniform3f(locations.enabled,$('refraction').checked?1:0,$('lighting').checked?1:0,$('chromatic').checked?1:0);gl.drawArrays(gl.TRIANGLES,0,3);renders++;window.labReady=true;window.labState={renders,blur:+$('blur').value,depth:+$('depth').value};$('status').textContent='参数变化时绘制 · 静止时停止渲染';
+ for(const el of document.querySelectorAll('.drawer'))el.style.transform=`translate(${shift.x}px,${shift.y}px)`;}
+function preset(name){const p={clear:[1.2,18,.75,.55],soft:[2.4,16,.65,.4],crystal:[.45,24,1,.85]}[name]||[1.2,18,.75,.55];keys.forEach((key,i)=>$(key).value=p[i]);document.querySelectorAll('[data-preset]').forEach(b=>b.classList.toggle('active',b.dataset.preset===name));schedule();}
+for(const key of keys)$(key).addEventListener('input',()=>{document.querySelectorAll('[data-preset]').forEach(b=>b.classList.remove('active'));schedule();});document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>preset(b.dataset.preset));for(const key of ['refraction','lighting','chromatic'])$(key).onchange=schedule;
+$('background').onchange=()=>{uploaded=null;background();};$('upload').onchange=async e=>{if(!e.target.files[0])return;try{if(uploaded)uploaded.close();uploaded=await createImageBitmap(e.target.files[0]);background();}catch{$('status').textContent='这张图片无法读取，请换一张图片。'}};
+let dragging=null;canvas.onpointerdown=e=>{const r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;if(x<r.width*.555+shift.x||x>r.width*.945+shift.x||y<r.height*.22+shift.y||y>r.height*.77+shift.y)return;dragging={x:e.clientX,y:e.clientY,sx:shift.x,sy:shift.y};canvas.setPointerCapture(e.pointerId);};canvas.onpointermove=e=>{if(!dragging)return;shift.x=Math.max(-stage.clientWidth*.035,Math.min(stage.clientWidth*.035,dragging.sx+e.clientX-dragging.x));shift.y=Math.max(-stage.clientHeight*.09,Math.min(stage.clientHeight*.13,dragging.sy+e.clientY-dragging.y));schedule();};canvas.onpointerup=()=>dragging=null;canvas.onpointercancel=()=>dragging=null;
+new ResizeObserver(schedule).observe(stage);const requestedBackground=new URLSearchParams(location.search).get('bg');if(['landscape','grid','text'].includes(requestedBackground))$('background').value=requestedBackground;background();preset(location.hash.slice(1)||'clear');
+</script>
+</html>
