@@ -50,7 +50,9 @@
 
 ## 开始使用
 
-当前可按下方说明从源码构建。构建完成后，双击 `dist\EdgeTuck.exe` 打开设置。
+从 [Releases 页面](https://github.com/HavrenL/EdgeTuck/releases/tag/v0.8.10) 下载 `EdgeTuck-0.8.10-windows-x64.zip`，解压整个目录后双击 `EdgeTuck.exe` 打开设置，无需安装。
+
+目前提供开发预览版，系统要求和已知限制见下文。也可以按[源码构建说明](#从源码构建)自行编译。
 
 1. 在“我的抽屉”中点击“新建抽屉”，选择边缘并命名。
 2. 把文件拖到抽屉上，完成收纳。
