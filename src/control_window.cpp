@@ -93,7 +93,7 @@ void App::paint_control() {
         ui.navigation(202,194,L"常规",2,control_page==ControlPage::General);
         ui.button(101,box(20,c.height-112,140,34),L"回到桌面");
         c.text(L"关闭窗口后仍在托盘运行",box(20,c.height-72,146,24),10,p.muted);
-        c.text(L"版本 0.8.11",box(24,c.height-36,132,20),11,p.muted);
+        c.text(L"版本 0.8.12",box(24,c.height-36,132,20),11,p.muted);
 
         const wchar_t* titles[]{L"我的抽屉",L"外观",L"常规"};
         c.text(titles[static_cast<int>(control_page)],box(x,24,w,42),28,p.text,true);
@@ -172,7 +172,7 @@ void App::paint_control() {
             ui.row(x,326,w,L"存放位置与迁移",archive_root().wstring());
             ui.button(52,box(x+w-110,346,90,32),L"管理…");
             c.text(L"关于",box(x,422,w,24),13,p.text,true);
-            ui.row(x,456,w,L"轻屉 · EdgeTuck",L"版本 0.8.11  ·  原生桌面收纳工具");
+            ui.row(x,456,w,L"轻屉 · EdgeTuck",L"版本 0.8.12  ·  原生桌面收纳工具");
             ui.button(104,box(x+w-110,476,90,32),L"退出轻屉");
         }
         c.line(x,c.height-56,x+w,c.height-56,p.line);
@@ -257,6 +257,7 @@ void App::control_drawer_menu(int id) {
     HMENU popup=CreatePopupMenu(),sides=CreatePopupMenu();
     AppendMenuW(popup,MF_STRING|(d->folder.empty()?MF_GRAYED:0),1,L"打开文件夹");
     AppendMenuW(popup,MF_STRING,2,L"重命名");
+    AppendMenuW(popup,MF_STRING|(d->folder.empty()?MF_GRAYED:0),4,L"设置英文目录名…");
     for(int i=0;i<3;++i) AppendMenuW(sides,MF_STRING|(static_cast<int>(d->edge)==i?MF_CHECKED:0),10+i,edge_name(static_cast<Edge>(i)).c_str());
     AppendMenuW(popup,MF_POPUP,reinterpret_cast<UINT_PTR>(sides),L"移到边缘");
     AppendMenuW(popup,MF_SEPARATOR,0,nullptr); AppendMenuW(popup,MF_STRING,3,L"解散抽屉");
@@ -268,6 +269,7 @@ void App::control_drawer_menu(int id) {
     if(chosen==1 && !d->folder.empty()) ShellExecuteW(control,L"open",d->folder.c_str(),nullptr,nullptr,SW_SHOWNORMAL);
     if(chosen==2) rename_drawer(id);
     if(chosen==3) remove_drawer(id);
+    if(chosen==4) rename_drawer_folder(id);
     if(chosen>=10 && chosen<=12) move_drawer_edge(id,static_cast<Edge>(chosen-10));
     hovered_button=selected_button=pressed_button=-1; invalidate();
 }

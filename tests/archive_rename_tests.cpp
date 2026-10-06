@@ -29,6 +29,41 @@ int main() {
         require(archive_folder_name(L"个人/杂项")==L"ET_个人_杂项","Windows-invalid separators mapped consistently");
         require(archive_folder_name(L"分类. ")==L"ET_分类","trailing dot and space removed");
         {
+            Fixture f(root,L"english"); const auto original=f.settings.drawers[0];
+            auto result=rename_archive_folder(f.settings,1,L"Development",f.config);
+            const auto& drawer=result.settings.drawers[0];
+            require(result.saved && drawer.english_folder && drawer.name==original.name && std::filesystem::path(drawer.folder).filename()==L"ETDevelopment","explicit English conversion preserves display title");
+            require(drawer.folder_identity==original.folder_identity && bytes(std::filesystem::path(drawer.folder)/L"keep.txt")=="original data" && recent_use(drawer,drawer.items[0])==100,"conversion retains identity, contents and usage paths");
+            Settings loaded; std::wstring error;
+            require(load_settings(f.config,loaded,error) && loaded.drawers[0].english_folder && loaded.drawers[0].folder==drawer.folder,"independent naming persists across restart");
+            const auto handle=CreateFileW(drawer.folder.c_str(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,nullptr,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,nullptr);
+            require(handle!=INVALID_HANDLE_VALUE,"hold English directory against renaming");
+            auto titled=rename_archive(loaded,1,L"开发工具",f.config); CloseHandle(handle);
+            require(titled.saved && titled.settings.drawers[0].folder==drawer.folder && titled.settings.drawers[0].name==L"开发工具","title edit succeeds while directory is locked against physical renaming");
+            auto offline=titled.settings.drawers[0]; const auto target=std::filesystem::path(offline.folder).parent_path()/L"ETProjects";
+            require(MoveFileW(offline.folder.c_str(),target.c_str())!=FALSE && reconnect_folder(offline,target.parent_path()) && offline.name==L"开发工具" && offline.english_folder,"external directory rename reconnects by identity without replacing independent title");
+        }
+        {
+            Fixture f(root,L"english-collision"); const auto target=std::filesystem::path(f.settings.drawers[0].folder).parent_path()/L"ETDevelopment";
+            std::filesystem::create_directory(target); write(target/L"keep.txt","other directory"); const auto config=bytes(f.config);
+            auto result=rename_archive_folder(f.settings,1,L"Development",f.config);
+            require(!result.saved && !result.settings.drawers[0].english_folder && folder_available(f.settings.drawers[0]) && bytes(f.config)==config && bytes(target/L"keep.txt")=="other directory","English conversion collision preserves both folders and mode");
+        }
+        {
+            Fixture f(root,L"english-save-failure"); const auto original=bytes(f.config);
+            SetFileAttributesW(f.config.c_str(),FILE_ATTRIBUTE_READONLY);
+            auto result=rename_archive_folder(f.settings,1,L"Development",f.config);
+            SetFileAttributesW(f.config.c_str(),FILE_ATTRIBUTE_NORMAL);
+            require(!result.saved && !result.recovery_required && !result.settings.drawers[0].english_folder && folder_available(f.settings.drawers[0]) && bytes(f.config)==original,"failed English conversion save rolls physical path back and retains legacy mode");
+        }
+        {
+            Fixture f(root,L"invalid-English"); const auto config=bytes(f.config);
+            for(const auto* alias:{L"",L"开发",L"Dev_Tools",L"Dev-Tools",L"Dev Tools",L"../Work",L"1Work"}) {
+                auto result=rename_archive_folder(f.settings,1,alias,f.config);
+                require(!result.saved && folder_available(f.settings.drawers[0]) && bytes(f.config)==config,"invalid English conversion cannot change folder or config");
+            }
+        }
+        {
             Fixture f(root,L"success"); const auto original=f.settings.drawers[0];
             auto result=rename_archive(f.settings,1,L"常用",f.config);
             const auto& d=result.settings.drawers[0];

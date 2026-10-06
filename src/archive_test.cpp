@@ -3,14 +3,43 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include <thread>
 namespace edge {
 static void require(bool value,const char* what) { if(!value) throw std::runtime_error(what); }
 static void write_fixture(const std::filesystem::path& path,const char* bytes) { std::ofstream out(path,std::ios::binary); out<<bytes; }
+static void check_creation_dialog(App& app,bool cancel) {
+    bool validated=false;
+    std::thread input([&] {
+        HWND dialog{}; const auto deadline=GetTickCount64()+5000;
+        while(!dialog && GetTickCount64()<deadline) {
+            for(HWND candidate=FindWindowExW(nullptr,nullptr,L"EdgeTuck.Rename",nullptr);candidate;candidate=FindWindowExW(nullptr,candidate,L"EdgeTuck.Rename",nullptr)) {
+                DWORD pid{}; GetWindowThreadProcessId(candidate,&pid);
+                if(pid==GetCurrentProcessId() && IsWindowVisible(candidate) && GetDlgItem(candidate,101)) {dialog=candidate; break;}
+            }
+            if(!dialog) Sleep(10);
+        }
+        if(!dialog) return;
+        if(cancel) {validated=true; SendMessageW(dialog,WM_COMMAND,IDCANCEL,0); return;}
+        validated=true;
+        for(const auto* alias:{L"",L"开发",L"Dev_Tools",L"Dev-Tools",L"1Dev"}) {
+            SetWindowTextW(GetDlgItem(dialog,101),alias);
+            SendMessageW(dialog,WM_COMMAND,IDOK,0);
+            if(!IsWindow(dialog)) {validated=false; return;}
+        }
+        SetWindowTextW(GetDlgItem(dialog,101),L"Development");
+        SendMessageW(dialog,WM_COMMAND,IDOK,0);
+    });
+    std::wstring alias;
+    const auto title=app.ask_name(app.control,L"新建抽屉 · 隔离测试",L"开发",64,&alias);
+    input.join();
+    require(validated && (cancel?(!title && alias.empty()):(title==L"开发" && alias==L"Development")),"creation dialog requires alphanumeric English alias and supports cancel");
+}
 void App::archive_test_tick() {
     if(archive_test_running) return;
     archive_test_running=true;
     try {
         auto& first=*drawers.front(); auto& last=*drawers.back();
+        static std::wstring last_title;
         static int retries{};
         auto awaiting=[&](bool ready) {
             if(ready) { retries=0; return false; }
@@ -19,6 +48,8 @@ void App::archive_test_tick() {
         };
         const auto input=archive_fixture/L"外部文件.txt";
         if(archive_step==0) {
+            last_title=last.model().name;
+            check_creation_dialog(*this,false); check_creation_dialog(*this,true);
             require(folder_available(first.model()) && folder_available(last.model()),"test folders bound");
             require(settings.storage_mode==StorageMode::Directory && std::filesystem::path(first.model().folder).parent_path()==archive_fixture/L"independent","fresh drawers use independent storage");
             write_fixture(input,"first contents");
@@ -46,7 +77,7 @@ void App::archive_test_tick() {
             require(!first.dropping && interaction_depth==depth_before,"completed drop releases image and receiving state");
             require(first.model().items.size()==1 && first.model().legacy_items.empty(),"legacy reference explicitly archived");
             require(rename_drawer_to(first.id,L"归档改名") && first.model().name==L"归档改名" &&
-                std::filesystem::path(first.model().folder).filename()==L"ET_归档改名" && folder_available(first.model()),"app rename updates bound folder and references in isolated profile");
+                std::filesystem::path(first.model().folder).filename()==english_archive_name(first.id) && folder_available(first.model()),"app rename keeps independent English folder path in isolated profile");
             const auto extra=std::filesystem::path(first.model().folder)/L"second.txt";
             write_fixture(extra,"second contents"); refresh_archives();
             const auto from=first.model().items[0];
@@ -78,7 +109,7 @@ void App::archive_test_tick() {
             require(SUCCEEDED(rename_file(control,old,L"Renamed drawer folder")),"rename backing folder");
         } else if(archive_step==4) {
             if(awaiting(std::filesystem::path(last.model().folder).filename()==L"Renamed drawer folder")) return;
-            require(std::filesystem::path(last.model().folder).filename()==L"Renamed drawer folder" && folder_available(last.model()) && last.model().name==L"Renamed drawer folder","backing folder identity, path and drawer title updated");
+            require(std::filesystem::path(last.model().folder).filename()==L"Renamed drawer folder" && folder_available(last.model()) && last.model().name==last_title,"backing folder identity and path updated while independent title is retained");
             const int id=first.id; const auto folder=first.model().folder; const auto file=first.model().items[0];
             remove_drawer(id);
             require(std::filesystem::exists(file) && std::filesystem::is_directory(folder),"remove drawer preserves actual contents");

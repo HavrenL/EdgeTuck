@@ -29,6 +29,7 @@ static std::wstring wide(const std::string& value) {
 Settings defaults() {
     Settings s;
     s.drawers = {{1, L"日常", Edge::Right, 1, 4, 5, {}}, {2, L"工作", Edge::Left, 2, 4, 5, {}}, {3, L"灵感", Edge::Top, 5, 5, 4, {}}};
+    for(auto& drawer:s.drawers) drawer.english_folder=true;
     return s;
 }
 std::wstring edge_name(Edge edge) {
@@ -55,7 +56,7 @@ bool load_settings(const std::filesystem::path& path, Settings& result, std::wst
         std::ifstream in(path, std::ios::binary);
         std::string signature;
         std::getline(in, signature);
-        if (signature != "EDGETUCK 1" && signature != "EDGETUCK 2" && signature != "EDGETUCK 3" && signature != "EDGETUCK 4" && signature != "EDGETUCK 5" && signature != "EDGETUCK 6" && signature != "EDGETUCK 7") throw std::runtime_error("Unsupported configuration version");
+        if (signature != "EDGETUCK 1" && signature != "EDGETUCK 2" && signature != "EDGETUCK 3" && signature != "EDGETUCK 4" && signature != "EDGETUCK 5" && signature != "EDGETUCK 6" && signature != "EDGETUCK 7" && signature != "EDGETUCK 8") throw std::runtime_error("Unsupported configuration version");
         const int version=signature.back()-'0';
         Settings s;
         s.storage_mode=StorageMode::Desktop; // Upgrades never relocate existing archives.
@@ -126,6 +127,11 @@ bool load_settings(const std::filesystem::path& path, Settings& result, std::wst
                 if(!(in>>sort>>descending) || sort<0 || sort>5 || descending<0 || descending>1) throw std::runtime_error("Invalid sort mode");
                 d.sort=static_cast<SortMode>(sort); d.sort_descending=descending!=0;
             }
+            if(version>=8) {
+                int english{};
+                if(!(in>>english) || english<0 || english>1) throw std::runtime_error("Invalid drawer folder naming mode");
+                d.english_folder=english!=0;
+            }
             s.drawers.push_back(std::move(d));
         }
         in >> std::ws;
@@ -151,7 +157,7 @@ bool save_settings(const std::filesystem::path& path, const Settings& settings, 
             (!settings.storage_directory.empty() && (settings.storage_directory.find(L'\0')!=std::wstring::npos || !std::filesystem::path(settings.storage_directory).is_absolute()))) throw std::runtime_error("Invalid storage directory");
         std::filesystem::create_directories(path.parent_path());
         std::ofstream out(temporary, std::ios::binary | std::ios::trunc);
-        out << "EDGETUCK 7\n" << static_cast<int>(settings.theme) << ' ' << settings.glass << ' ' << settings.motion << ' ' << settings.hover_ms << ' ' << settings.close_ms << ' ' << settings.drawers.size() << '\n';
+        out << "EDGETUCK 8\n" << static_cast<int>(settings.theme) << ' ' << settings.glass << ' ' << settings.motion << ' ' << settings.hover_ms << ' ' << settings.close_ms << ' ' << settings.drawers.size() << '\n';
         const auto& m = settings.material;
         out << std::setprecision(9) << m.blur << ' ' << m.depth << ' ' << m.light << ' ' << m.dispersion << ' ' << m.refraction << ' ' << m.lighting << ' ' << m.chromatic << '\n';
         out << settings.live_background << '\n';
@@ -165,6 +171,7 @@ bool save_settings(const std::filesystem::path& path, const Settings& settings, 
             out<<std::quoted(utf8(d.folder))<<' '<<std::quoted(utf8(d.folder_identity))<<' '<<d.restore_position<<' '<<d.restore_x<<' '<<d.restore_y<<' '<<d.legacy_items.size()<<'\n';
             for(const auto& item:d.legacy_items) out<<std::quoted(utf8(item))<<'\n';
             out<<static_cast<int>(d.sort)<<' '<<d.sort_descending<<'\n';
+            out<<d.english_folder<<'\n';
         }
         if (out.tellp() > 4 * 1024 * 1024) throw std::runtime_error("Configuration exceeds size limit");
         out.flush();

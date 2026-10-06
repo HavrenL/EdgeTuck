@@ -4,13 +4,15 @@
 #include <algorithm>
 
 namespace edge {
-RenameResult rename_archive(const Settings& before,int id,const std::wstring& name,const std::filesystem::path& config) {
+static RenameResult rename_bound_archive(const Settings& before,int id,const std::wstring& name,const std::filesystem::path& config,const std::wstring* alias) {
     RenameResult result; result.settings=before;
     auto current=std::find_if(before.drawers.begin(),before.drawers.end(),[&](const auto& d){return d.id==id;});
     if(current==before.drawers.end() || name.empty() || name.size()>64 || name.find(L'\0')!=std::wstring::npos ||
         std::any_of(name.begin(),name.end(),[](wchar_t c){return c<32;})) {result.message=L"抽屉名称无效。"; return result;}
     if(!folder_available(*current)) {result.message=L"抽屉文件夹不可用，未修改名称。请先恢复原文件夹。"; return result;}
-    const std::filesystem::path old(current->folder),target=old.parent_path()/archive_folder_name(name);
+    if(alias && !valid_english_archive_alias(*alias)) {result.message=L"目录名必须以英文字母开头，只能包含英文字母和数字。"; return result;}
+    const std::filesystem::path old(current->folder),target=alias?old.parent_path()/(L"ET"+*alias):
+        (current->english_folder?old:old.parent_path()/archive_folder_name(name));
     const bool move=old.wstring()!=target.wstring();
     if(!old.is_absolute() || old!=old.lexically_normal() || target.parent_path()!=old.parent_path()) {result.message=L"无法确认原文件夹位置。"; return result;}
     if(move) {
@@ -24,6 +26,7 @@ RenameResult rename_archive(const Settings& before,int id,const std::wstring& na
     }
     auto next=before;
     auto& drawer=next.drawers[static_cast<size_t>(current-before.drawers.begin())]; drawer.name=name;
+    if(alias) drawer.english_folder=true;
     if(move) {
         drawer.folder=target.wstring();
         for(auto& d:next.drawers) for(auto& p:d.legacy_items) if(path_within(p,current->folder)) p=drawer.folder+p.substr(current->folder.size());
@@ -32,7 +35,8 @@ RenameResult rename_archive(const Settings& before,int id,const std::wstring& na
     }
     if(save_settings(config,next,result.message)) {
         result.saved=true; result.settings=std::move(next);
-        result.message=move?L"抽屉和文件夹已同步改名。":L"抽屉名称已保存，文件夹名称已对应。"; return result;
+        result.message=alias?L"英文目录名已保存，抽屉标题保持不变。":drawer.english_folder?
+            L"抽屉标题已保存，文件夹路径保持不变。":move?L"抽屉和文件夹已同步改名。":L"抽屉名称已保存，文件夹名称已对应。"; return result;
     }
     const auto save_error=result.message;
     if(move) {
@@ -46,5 +50,12 @@ RenameResult rename_archive(const Settings& before,int id,const std::wstring& na
         }
     }
     result.message=save_error+L" 原名称已保留。"; return result;
+}
+RenameResult rename_archive(const Settings& before,int id,const std::wstring& name,const std::filesystem::path& config) {
+    return rename_bound_archive(before,id,name,config,nullptr);
+}
+RenameResult rename_archive_folder(const Settings& before,int id,const std::wstring& alias,const std::filesystem::path& config) {
+    const auto current=std::find_if(before.drawers.begin(),before.drawers.end(),[&](const auto& d){return d.id==id;});
+    return rename_bound_archive(before,id,current==before.drawers.end()?L"":current->name,config,&alias);
 }
 }

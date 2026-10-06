@@ -150,6 +150,7 @@ int main() {
         { std::ofstream out(original, std::ios::binary); out << "unchanged bytes\n"; }
         const DWORD attributes = GetFileAttributesW(original.c_str());
         Settings expected = defaults();
+        expected.drawers[1].english_folder=false;
         expected.live_background=false;
         expected.responsive_priority=true;
         expected.storage_mode=StorageMode::Directory;
@@ -167,6 +168,7 @@ int main() {
         require(!loaded.live_background,"screenshot-compatible background choice survives restart");
         require(loaded.responsive_priority,"process priority preference survives restart");
         require(loaded.storage_mode==StorageMode::Directory && loaded.storage_directory==expected.storage_directory,"storage mode and Unicode directory survive restart");
+        require(loaded.drawers[0].english_folder && !loaded.drawers[1].english_folder,"independent and legacy directory naming modes round trip separately");
         const auto legacy = root / L"legacy.dat";
         { std::ofstream out(legacy, std::ios::binary); out << "EDGETUCK 1\n0 1 1 0 0 1\n1 1 2 4 5 \"Work\" 0\n"; }
         Settings migrated;
@@ -183,6 +185,19 @@ int main() {
 "C:\\fixtures\\ET_Work" "12:0:456" 1 17 912 0
 )"; }
         require(load_settings(legacy,migrated,error) && !migrated.responsive_priority && migrated.drawers[0].folder==L"C:\\fixtures\\ET_Work" && migrated.drawers[0].folder_identity==L"12:0:456" && migrated.drawers[0].restore_y==912 && migrated.drawers[0].items.size()==1,"v4 migration retains bindings, coordinates and file order");
+        require(!migrated.drawers[0].english_folder,"old folder bindings retain their original naming mode");
+        { std::ofstream out(legacy,std::ios::binary); out<<R"(EDGETUCK 7
+0 1 1 0 0 1
+1.2 18 1 0.5 1 1 1
+1
+0
+1 "D:\\Archive"
+7 1 2 4 5 "Work" 1
+"C:\\fixtures\\ET_Work\\report.txt" 123
+"C:\\fixtures\\ET_Work" "12:0:456" 1 17 912 0
+5 1
+)"; }
+        require(load_settings(legacy,migrated,error) && !migrated.drawers[0].english_folder && migrated.drawers[0].folder==L"C:\\fixtures\\ET_Work" && migrated.drawers[0].sort==SortMode::Recent && migrated.drawers[0].recent_uses[0].time==123,"v7 upgrade preserves paths, title mode, sorting and recent use");
         { std::ofstream out(legacy, std::ios::binary); out << "EDGETUCK 2\n0 1 1 0 0 0\n1.2 18 99 0.5 1 1 1\n"; }
         require(!load_settings(legacy, migrated, error), "out of range shader parameters rejected");
         std::filesystem::remove(legacy);

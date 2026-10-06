@@ -362,6 +362,7 @@ void Drawer::context_menu(POINT point, bool is_handle) {
         AppendMenuW(menu,MF_STRING,0x7034,L"刷新\tF5");
         AppendMenuW(menu,MF_SEPARATOR,0,nullptr);
         AppendMenuW(menu, MF_STRING, 0x7010, L"打开轻屉设置"); AppendMenuW(menu, MF_STRING, 0x7011, L"重命名抽屉");
+        if(!model().folder.empty()) AppendMenuW(menu,MF_STRING,0x7014,L"设置英文目录名…");
         AppendMenuW(menu, MF_STRING | (pinned ? MF_CHECKED : 0), 0x7012, L"保持展开");
         HMENU sides = CreatePopupMenu();
         AppendMenuW(sides, MF_STRING, 0x7020, L"左侧"); AppendMenuW(sides, MF_STRING, 0x7021, L"右侧"); AppendMenuW(sides, MF_STRING, 0x7022, L"顶部");
@@ -379,6 +380,7 @@ void Drawer::context_menu(POINT point, bool is_handle) {
     if (command == 0x7007) { retry_file_menu(); PostMessageW(panel,WM_CONTEXTMENU,reinterpret_cast<WPARAM>(panel),MAKELPARAM(point.x,point.y)); }
     if (command == 0x7010) app.show_control();
     if (command == 0x7011) PostMessageW(app.broker, WM_APP + 21, id, 0);
+    if (command == 0x7014) PostMessageW(app.broker, WM_APP + 22, id, 0);
     if (command == 0x7012) { pinned = !pinned; if (pinned) set_open(true); }
     if (command == 0x7013) PostMessageW(app.broker, WM_EDGE_REMOVE, id, 0);
     if (command >= 0x7020 && command <= 0x7022) {

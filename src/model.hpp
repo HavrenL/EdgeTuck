@@ -28,6 +28,7 @@ struct DrawerModel {
     SortMode sort{SortMode::Manual};
     bool sort_descending{};
     std::vector<RecentUse> recent_uses;
+    bool english_folder{}; // Physical name is independent of the displayed title.
 };
 struct Settings {
     Theme theme{Theme::System};

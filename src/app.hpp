@@ -203,7 +203,7 @@ public:
     void refresh_file_watch();
     void file_changed(const FileChange& change);
     void finish_interaction();
-    std::optional<std::wstring> ask_name(HWND owner, const std::wstring& title, const std::wstring& value, int limit=64);
+    std::optional<std::wstring> ask_name(HWND owner, const std::wstring& title, const std::wstring& value, int limit=64, std::wstring* directory_alias=nullptr);
     void invalidate();
     void desktop_order();
     void preview_drawer(int id);
@@ -212,6 +212,7 @@ public:
     void restore_drawer();
     void rename_drawer(int id);
     bool rename_drawer_to(int id,const std::wstring& name);
+    void rename_drawer_folder(int id);
     void sync_folder_names(HWND owner);
     void move_drawer_edge(int id, Edge edge);
     DrawerModel* find(int id);

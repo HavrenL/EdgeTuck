@@ -1,8 +1,8 @@
 #include <windows.h>
 1 ICON "app.ico"
 1 VERSIONINFO
-FILEVERSION 0,8,11,0
-PRODUCTVERSION 0,8,11,0
+FILEVERSION 0,8,12,0
+PRODUCTVERSION 0,8,12,0
 FILEOS VOS_NT_WINDOWS32
 FILETYPE VFT_APP
 BEGIN
@@ -12,7 +12,7 @@ BEGIN
     BEGIN
       VALUE "FileDescription", "EdgeTuck Desktop Drawer Prototype"
       VALUE "ProductName", "EdgeTuck"
-      VALUE "FileVersion", "0.8.11"
+      VALUE "FileVersion", "0.8.12"
       VALUE "OriginalFilename", "EdgeTuck.exe"
     END
   END

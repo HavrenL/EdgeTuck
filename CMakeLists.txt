@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(EdgeTuck VERSION 0.8.11 LANGUAGES CXX RC)
+project(EdgeTuck VERSION 0.8.12 LANGUAGES CXX RC)
 
 if(NOT WIN32 OR NOT MSVC)
   message(FATAL_ERROR "EdgeTuck currently requires Windows and the MSVC C++ toolchain.")

@@ -476,11 +476,13 @@ void App::add_drawer(Edge side) {
     if(undo) id=std::max(id,undo->id+1);
     if (id > 1000000) return;
     std::wstring name=L"新抽屉";
-    if(!smoke) { const auto chosen=ask_name(control,L"新建抽屉",name); if(!chosen) return; name=*chosen; }
+    std::wstring alias;
+    if(!smoke) { const auto chosen=ask_name(control,L"新建抽屉",name,64,&alias); if(!chosen) return; name=*chosen; }
     DrawerModel model{id,name,side,start,span,5,{}};
+    model.english_folder=true;
     if(!smoke) {
         std::wstring error;
-        if(!save_allowed || !bind_new_folder(model,archive_root(),error)) { notice=error; invalidate(); return; }
+        if(!save_allowed || !bind_new_folder(model,archive_root(),error,alias)) { notice=error; invalidate(); return; }
     }
     settings.drawers.push_back(std::move(model));
     auto drawer = std::make_unique<Drawer>(*this, id); drawer->create(); drawers.push_back(std::move(drawer));
@@ -516,7 +518,7 @@ void App::move_drawer_edge(int id, Edge side) {
     create_drawers(); save(); desktop_order(); invalidate();
 }
 
-struct RenameState { HWND edit{}; HFONT font{}; std::wstring name; bool done{}, accepted{}; };
+struct RenameState { HWND edit{},alias{},validation{}; HFONT font{}; std::wstring name; std::wstring* directory_alias{}; bool done{}, accepted{}; };
 static LRESULT CALLBACK rename_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
     auto* state = reinterpret_cast<RenameState*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
     if (message == WM_NCCREATE) { state = static_cast<RenameState*>(reinterpret_cast<CREATESTRUCTW*>(lparam)->lpCreateParams); SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(state)); }
@@ -526,8 +528,16 @@ static LRESULT CALLBACK rename_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
             wchar_t name[256]{}; GetWindowTextW(state->edit, name, 256);
             std::wstring value = name;
             const auto first = value.find_first_not_of(L" \t\r\n");
-            if (first == std::wstring::npos) return 0;
+            if (first == std::wstring::npos) { if(state->validation) SetWindowTextW(state->validation,L"请填写抽屉标题。"); SetFocus(state->edit); return 0; }
             value = value.substr(first, value.find_last_not_of(L" \t\r\n") - first + 1);
+            if(state->directory_alias) {
+                wchar_t alias[256]{}; GetWindowTextW(state->alias,alias,256);
+                if(!valid_english_archive_alias(alias)) {
+                    SetWindowTextW(state->validation,L"英文目录名必填：以英文字母开头，只能包含字母和数字。");
+                    SetFocus(state->alias); return 0;
+                }
+                *state->directory_alias=alias;
+            }
             state->name = value; state->accepted = true;
         }
         DestroyWindow(hwnd); return 0;
@@ -536,20 +546,38 @@ static LRESULT CALLBACK rename_proc(HWND hwnd, UINT message, WPARAM wparam, LPAR
     if (message == WM_DESTROY) { state->done = true; return 0; }
     return DefWindowProcW(hwnd, message, wparam, lparam);
 }
-std::optional<std::wstring> App::ask_name(HWND owner, const std::wstring& title, const std::wstring& value, int limit) {
+std::optional<std::wstring> App::ask_name(HWND owner, const std::wstring& title, const std::wstring& value, int limit, std::wstring* directory_alias) {
     Interaction interaction(*this);
     WNDCLASSW wc{}; wc.hInstance = instance; wc.lpfnWndProc = rename_proc; wc.lpszClassName = L"EdgeTuck.Rename"; wc.hCursor = LoadCursorW(nullptr, IDC_ARROW); wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1); RegisterClassW(&wc);
-    RenameState state; state.name = value;
+    RenameState state; state.name = value; state.directory_alias=directory_alias;
     RECT parent{}; GetWindowRect(owner, &parent);
     const auto px = [this](int value) { return static_cast<int>(value * scale); };
+    const int width=directory_alias?480:390,height=directory_alias?352:172;
     HWND dialog = CreateWindowExW(WS_EX_DLGMODALFRAME, wc.lpszClassName, title.c_str(), WS_CAPTION | WS_SYSMENU | WS_POPUP,
-        std::clamp(parent.left+(parent.right-parent.left-px(390))/2,work.left,work.right-px(390)),
-        std::clamp(parent.top+(parent.bottom-parent.top-px(172))/2,work.top,work.bottom-px(172)),px(390),px(172),owner,nullptr,instance,&state);
+        std::clamp(parent.left+(parent.right-parent.left-px(width))/2,work.left,work.right-px(width)),
+        std::clamp(parent.top+(parent.bottom-parent.top-px(height))/2,work.top,work.bottom-px(height)),px(width),px(height),owner,nullptr,instance,&state);
     if (!dialog) return {};
     state.font = CreateFontW(-px(15), 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Microsoft YaHei UI");
-    state.edit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", state.name.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL, px(20), px(20), px(335), px(32), dialog, reinterpret_cast<HMENU>(100), instance, nullptr);
-    HWND okay = CreateWindowExW(0, L"BUTTON", L"保存", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, px(174), px(76), px(86), px(32), dialog, reinterpret_cast<HMENU>(IDOK), instance, nullptr);
-    HWND cancel = CreateWindowExW(0, L"BUTTON", L"取消", WS_CHILD | WS_VISIBLE | WS_TABSTOP, px(270), px(76), px(86), px(32), dialog, reinterpret_cast<HMENU>(IDCANCEL), instance, nullptr);
+    state.edit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", state.name.c_str(), WS_CHILD | WS_VISIBLE | WS_TABSTOP | ES_AUTOHSCROLL, px(20), px(directory_alias?40:20), px(directory_alias?435:335), px(32), dialog, reinterpret_cast<HMENU>(100), instance, nullptr);
+    HWND okay = CreateWindowExW(0, L"BUTTON", directory_alias?L"创建":L"保存", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_DEFPUSHBUTTON, px(directory_alias?269:174), px(directory_alias?262:76), px(86), px(32), dialog, reinterpret_cast<HMENU>(IDOK), instance, nullptr);
+    HWND cancel = CreateWindowExW(0, L"BUTTON", L"取消", WS_CHILD | WS_VISIBLE | WS_TABSTOP, px(directory_alias?365:270), px(directory_alias?262:76), px(86), px(32), dialog, reinterpret_cast<HMENU>(IDCANCEL), instance, nullptr);
+    if(directory_alias) {
+        const auto label=[&](LPCWSTR text,int y,int h) {
+            HWND child=CreateWindowExW(0,L"STATIC",text,WS_CHILD|WS_VISIBLE,px(20),px(y),px(435),px(h),dialog,nullptr,instance,nullptr);
+            SendMessageW(child,WM_SETFONT,reinterpret_cast<WPARAM>(state.font),TRUE); return child;
+        };
+        label(L"抽屉标题（可以使用中文）",14,23);
+        label(L"英文目录名（必填，例如 Development）",84,23);
+        state.alias=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",directory_alias->c_str(),WS_CHILD|WS_VISIBLE|WS_TABSTOP|ES_AUTOHSCROLL,
+            px(20),px(110),px(435),px(32),dialog,reinterpret_cast<HMENU>(101),instance,nullptr);
+        SendMessageW(state.alias,WM_SETFONT,reinterpret_cast<WPARAM>(state.font),TRUE);
+        SendMessageW(state.alias,EM_SETLIMITTEXT,80,0);
+        SendMessageW(state.alias,EM_SETCUEBANNER,FALSE,reinterpret_cast<LPARAM>(L"Development"));
+        label(L"将创建 ET + 英文目录名，改标题时路径保持不变。\r\n需要全英文路径时，请同时选择英文的存放位置。",153,55);
+        state.validation=label(L"",213,40);
+        // Controls were created in layout order rather than tab order.
+        SetWindowPos(state.alias,state.edit,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+    }
     for (HWND child : {state.edit, okay, cancel}) SendMessageW(child, WM_SETFONT, reinterpret_cast<WPARAM>(state.font), TRUE);
     SendMessageW(state.edit, EM_SETLIMITTEXT, limit, 0); SendMessageW(state.edit, EM_SETSEL, 0, -1);
     EnableWindow(owner, FALSE); ShowWindow(dialog, SW_SHOW); SetForegroundWindow(dialog); SetFocus(state.edit);
@@ -565,7 +593,7 @@ std::optional<std::wstring> App::ask_name(HWND owner, const std::wstring& title,
 void App::rename_drawer(int id) {
     auto* d=find(id); if(!d || automated_test) return;
     Interaction interaction(*this);
-    show_control(); const auto name=ask_name(control,L"抽屉改名（同时修改分类文件夹名称）",d->name);
+    show_control(); const auto name=ask_name(control,d->english_folder?L"抽屉改名（文件夹路径保持不变）":L"抽屉改名（同时修改分类文件夹名称）",d->name);
     if(name) rename_drawer_to(id,*name);
 }
 bool App::rename_drawer_to(int id,const std::wstring& name) {
@@ -582,14 +610,37 @@ bool App::rename_drawer_to(int id,const std::wstring& name) {
     if(saved || result.recovery_required) { references_changed(); schedule_folders(true); }
     notice=result.message; invalidate(); return saved;
 }
+void App::rename_drawer_folder(int id) {
+    auto* d=find(id); if(!d || smoke || automated_test || storage_migrating || !save_allowed) return;
+    Interaction interaction(*this); show_control();
+    auto alias=L"Drawer"+std::to_wstring(id);
+    const auto filename=std::filesystem::path(d->folder).filename().wstring();
+    if(d->english_folder && filename.starts_with(L"ET") && valid_english_archive_alias(filename.substr(2))) alias=filename.substr(2);
+    for(;;) {
+        const auto chosen=ask_name(control,L"英文目录名（仅字母和数字，不含 ET 前缀）",alias,80);
+        if(!chosen) return;
+        alias=*chosen;
+        if(valid_english_archive_alias(alias)) break;
+        MessageBoxW(control,L"目录名必须以英文字母开头，只能包含英文字母和数字。",L"英文目录名",MB_OK|MB_ICONINFORMATION);
+    }
+    d=find(id); if(!d) return;
+    const auto target=std::filesystem::path(d->folder).parent_path()/(L"ET"+alias);
+    const auto text=L"将分类目录设为：\r\n"+target.wstring()+L"\r\n\r\n抽屉标题保持不变。改名会改变实际路径，外部软件的配置和快捷方式可能需要手动更新。\r\n同名时不会覆盖或合并。是否继续？";
+    if(MessageBoxW(control,text.c_str(),L"设置英文目录名",MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES || !save()) return;
+    auto result=rename_archive_folder(settings,id,alias,config_path);
+    settings=std::move(result.settings);
+    if(result.recovery_required) save_allowed=false;
+    if(result.saved || result.recovery_required) {references_changed(); schedule_folders(true);}
+    notice=result.message; invalidate();
+}
 void App::sync_folder_names(HWND owner) {
     if(smoke || storage_migrating || !save_allowed) return;
     std::vector<std::pair<int,std::wstring>> changes; std::wstring preview;
-    for(const auto& d:settings.drawers) if(!d.folder.empty()) {
+    for(const auto& d:settings.drawers) if(!d.folder.empty() && !d.english_folder) {
         const auto old=std::filesystem::path(d.folder).filename().wstring(),next=archive_folder_name(d.name);
         if(old!=next) {changes.emplace_back(d.id,d.name); preview+=old+L" → "+next+L"\r\n";}
     }
-    if(changes.empty()) {notice=L"抽屉名和文件夹名已经对应。"; invalidate(); return;}
+    if(changes.empty()) {notice=L"需要同步的文件夹名已经对应；独立英文目录不会跟随标题改名。"; invalidate(); return;}
     Interaction interaction(*this);
     const auto text=L"按当前抽屉名称修改以下文件夹：\r\n\r\n"+preview+L"\r\n这会改变实际文件路径，指向旧路径的外部配置可能需要更新。重名时不覆盖。是否继续？";
     if(MessageBoxW(owner,text.c_str(),L"同步分类文件夹名称",MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2)!=IDYES) return;
@@ -959,6 +1010,7 @@ LRESULT App::window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) 
     case WM_EDGE_CAPTURE_SYNC: app->capture_sync_pending=false; app->sync_live_capture(); return 0;
     case WM_APP + 20: if(!app->interaction_depth) app->move_drawer_edge(static_cast<int>(wparam), static_cast<Edge>(lparam)); return 0;
     case WM_APP + 21: if(!app->interaction_depth) app->rename_drawer(static_cast<int>(wparam)); return 0;
+    case WM_APP + 22: if(!app->interaction_depth) app->rename_drawer_folder(static_cast<int>(wparam)); return 0;
     case WM_EDGE_TRAY:
         if(app->interaction_depth) return 0;
         if (LOWORD(lparam) == WM_LBUTTONDBLCLK || LOWORD(lparam) == NIN_KEYSELECT) app->show_control();

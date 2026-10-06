@@ -14,6 +14,20 @@ int main() {
     try {
         root=std::filesystem::temp_directory_path()/(L"EdgeTuck-archive-core-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64()));
         require(std::filesystem::create_directory(root),"owned fixture created");
+        require(valid_english_archive_alias(L"Development2") && valid_english_archive_alias(L"CON"),"Latin alias accepts letters and digits; ET prefix avoids device names");
+        for(const auto* alias:{L"",L"开发",L"2Work",L"Dev_Tools",L"Dev-Tools",L"Dev Tools",L"..",L"C:\\Work",L"Work/Files",L"Work."})
+            require(!valid_english_archive_alias(alias),"blank, non-Latin, punctuation and traversal aliases rejected");
+        require(ascii_path(L"C:\\Archive\\ETDevelopment") && !ascii_path(L"C:\\资料\\ETDevelopment"),"full parent path checked independently of directory alias");
+        {
+            DrawerModel english{10,L"开发",Edge::Right,0,4,5,{}}; english.english_folder=true;
+            std::wstring error;
+            require(!bind_new_folder(english,root/L"invalid",error,L"Dev_Tools") && !std::filesystem::exists(root/L"invalid"),"invalid alias cannot create any directory");
+            require(bind_new_folder(english,root,error,L"Development") && std::filesystem::path(english.folder).filename()==L"ETDevelopment" && english.name==L"开发","explicit Latin directory independent of Unicode title");
+            write(std::filesystem::path(english.folder)/L"keep.txt","existing folder");
+            auto duplicate=english; duplicate.id=11; duplicate.folder.clear(); duplicate.folder_identity.clear();
+            require(bind_new_folder(duplicate,root,error,L"Development") && std::filesystem::path(duplicate.folder).filename()==L"ETDevelopment2" && duplicate.name==L"开发","collision adds only digits without changing display title");
+            require(read(std::filesystem::path(english.folder)/L"keep.txt")=="existing folder" && duplicate.folder_identity!=english.folder_identity,"collision never claims or overwrites existing directory");
+        }
         DrawerModel a{1,L"工作",Edge::Right,0,4,5,{}},b{2,L"工作",Edge::Left,0,4,5,{}};
         std::wstring error; const auto original=root/L"报告.txt"; write(original,"original");
         a.items={original.wstring()};

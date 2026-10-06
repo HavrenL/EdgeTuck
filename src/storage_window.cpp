@@ -30,7 +30,8 @@ struct StorageWindow {
         SendMessageW(directory,BM_SETCHECK,mode==StorageMode::Directory?BST_CHECKED:BST_UNCHECKED,0);
         SetWindowTextW(path,target().c_str());
         int inside=0; for(const auto& d:app.settings.drawers) if(same_path(std::filesystem::path(d.folder).parent_path().wstring(),app.desktop_root().wstring())) ++inside;
-        const auto text=L"现有 "+std::to_wstring(app.settings.drawers.size())+L" 个抽屉，其中 "+std::to_wstring(inside)+L" 个保存在桌面。\r\n保存位置只影响新抽屉；下面的迁移按钮才会处理已有文件。";
+        const auto text=L"现有 "+std::to_wstring(app.settings.drawers.size())+L" 个抽屉，其中 "+std::to_wstring(inside)+L" 个保存在桌面。\r\n"+
+            (ascii_path(target())?L"保存位置只影响新抽屉；下面的迁移按钮才会处理已有文件。":L"注意：上级路径含非英文字符，开发工具可能仍不兼容，请选择英文路径。");
         SetWindowTextW(summary,text.c_str());
         for(int id:{203,204}) EnableWindow(GetDlgItem(window,id),!busy && mode==StorageMode::Directory);
         const auto entry=app.smoke?ExplorerEntryStatus{}:explorer_entry_status();
@@ -40,7 +41,7 @@ struct StorageWindow {
     void create(HWND hwnd) {
         window=hwnd; scale=GetDpiForWindow(hwnd)/96.0f;
         font=CreateFontW(-static_cast<int>(14*scale),0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Microsoft YaHei UI");
-        child(L"STATIC",L"文件属于你，删除轻屉后仍能直接打开。",0,0,24,20,568,24);
+        child(L"STATIC",L"文件属于你。新抽屉必填英文目录名，标题可用中文。",0,0,24,20,568,24);
         desktop=child(L"BUTTON",L"桌面模式：分类文件夹保存在桌面",BS_AUTORADIOBUTTON|WS_TABSTOP|WS_GROUP,201,24,62,560,28);
         directory=child(L"BUTTON",L"独立目录：选择自己的收纳文件夹（推荐）",BS_AUTORADIOBUTTON|WS_TABSTOP,202,24,99,560,28);
         path=child(L"EDIT",L"",ES_READONLY|ES_AUTOHSCROLL|WS_TABSTOP,210,24,142,568,31);
@@ -57,7 +58,7 @@ struct StorageWindow {
         explorer=child(L"BUTTON",L"在“此电脑”中显示轻屉文件夹",BS_AUTOCHECKBOX|WS_TABSTOP,208,24,480,405,28);
         editing.push_back(explorer);
         editing.push_back(child(L"BUTTON",L"打开入口",BS_PUSHBUTTON|WS_TABSTOP,209,464,480,128,30));
-        child(L"STATIC",L"入口打开已保存的存放位置；关闭入口不影响文件。",0,0,24,516,568,24);
+        child(L"STATIC",L"收纳会移动文件，程序或开发环境的外部路径配置不会自动修改。",0,0,24,516,568,24);
         status=child(L"STATIC",L"",0,0,24,552,568,64);
         sync();
     }

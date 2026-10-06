@@ -15,6 +15,16 @@ std::wstring folder_identity(const std::filesystem::path& path) {
     return okay?std::to_wstring(info.dwVolumeSerialNumber)+L":"+std::to_wstring(info.nFileIndexHigh)+L":"+std::to_wstring(info.nFileIndexLow):L"";
 }
 bool folder_available(const DrawerModel& d) { return !d.folder.empty() && !d.folder_identity.empty() && folder_identity(d.folder)==d.folder_identity; }
+std::wstring english_archive_name(int id) { return L"ETDrawer"+std::to_wstring(id); }
+bool valid_english_archive_alias(const std::wstring& alias) {
+    const auto alnum=[](wchar_t c) {return (c>=L'A' && c<=L'Z') || (c>=L'a' && c<=L'z') || (c>=L'0' && c<=L'9');};
+    return !alias.empty() && alias.size()<=80 && ((alias.front()>=L'A' && alias.front()<=L'Z') || (alias.front()>=L'a' && alias.front()<=L'z')) &&
+        std::all_of(alias.begin(),alias.end(),alnum);
+}
+bool ascii_path(const std::filesystem::path& path) {
+    const auto text=path.wstring();
+    return std::all_of(text.begin(),text.end(),[](wchar_t c){return c>=32 && c<=126;});
+}
 std::wstring archive_folder_name(const std::wstring& title) {
     auto name=title;
     for(auto& c:name) if(c<32 || std::wstring(L"\\/:*?\"<>|").find(c)!=std::wstring::npos) c=L'_';
@@ -26,7 +36,7 @@ std::wstring archive_folder_name(const std::wstring& title) {
 bool rebind_folder(DrawerModel& d,const std::filesystem::path& path) {
     if(d.folder.empty() || d.folder_identity.empty() || folder_identity(path)!=d.folder_identity || d.folder==path.wstring()) return false;
     const auto old=d.folder; const auto previous=std::filesystem::path(old).filename().wstring(),next=path.filename().wstring();
-    if(previous!=next && archive_folder_name(d.name)!=next) {
+    if(!d.english_folder && previous!=next && archive_folder_name(d.name)!=next) {
         auto title=next.starts_with(L"ET_")?next.substr(3):next;
         if(title.empty()) title=next;
         if(title.size()>64) title.resize(64);
@@ -39,25 +49,26 @@ bool rebind_folder(DrawerModel& d,const std::filesystem::path& path) {
     for(auto& use:d.recent_uses) if(path_within(use.path,old)) use.path=d.folder+use.path.substr(old.size());
     return true;
 }
-bool bind_new_folder(DrawerModel& d,const std::filesystem::path& desktop,std::wstring& error) {
+bool bind_new_folder(DrawerModel& d,const std::filesystem::path& desktop,std::wstring& error,const std::wstring& english_alias) {
     error.clear();
     if(!d.folder.empty()) { if(folder_available(d)) return true; error=L"抽屉文件夹已移动、删除或不可用，请先在资源管理器中恢复。"; return false; }
+    if(!english_alias.empty() && (!d.english_folder || !valid_english_archive_alias(english_alias))) {error=L"目录名必须以英文字母开头，只能包含英文字母和数字。"; return false;}
     if(!desktop.is_absolute()) { error=L"无法找到收纳目录。"; return false; }
     // A missing removable drive must not be replaced by an unrelated directory.
     std::error_code ec;
     if(!std::filesystem::is_directory(desktop.root_path(),ec)) { error=L"收纳目录所在的磁盘不可用。"; return false; }
     std::filesystem::create_directories(desktop,ec);
     if(ec || folder_identity(desktop).empty()) { error=L"无法使用收纳目录，请检查位置和写入权限。"; return false; }
-    const auto name=archive_folder_name(d.name);
+    const auto name=d.english_folder?(english_alias.empty()?english_archive_name(d.id):L"ET"+english_alias):archive_folder_name(d.name);
     for(int i=1;i<=10000;++i) {
         auto title=d.name;
-        if(i>1) {
+        if(i>1 && !d.english_folder) {
             const auto suffix=L" ("+std::to_wstring(i)+L")";
             if(title.size()+suffix.size()>64) title.resize(64-suffix.size());
             if(!title.empty() && title.back()>=0xD800 && title.back()<=0xDBFF) title.pop_back();
             title+=suffix;
         }
-        auto path=desktop/(i==1?name:archive_folder_name(title));
+        auto path=desktop/(d.english_folder?(i==1?name:name+std::to_wstring(i)):(i==1?name:archive_folder_name(title)));
         if(CreateDirectoryW(path.c_str(),nullptr)) {
             const auto identity=folder_identity(path);
             if(identity.empty()) { RemoveDirectoryW(path.c_str()); error=L"无法记录抽屉文件夹的身份。"; return false; }
