@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(EdgeTuck VERSION 0.8.10 LANGUAGES CXX RC)
+project(EdgeTuck VERSION 0.8.11 LANGUAGES CXX RC)
 
 if(NOT WIN32 OR NOT MSVC)
   message(FATAL_ERROR "EdgeTuck currently requires Windows and the MSVC C++ toolchain.")
@@ -45,6 +45,12 @@ target_link_libraries(EdgeTuck PRIVATE edgetuck_core d2d1 dwrite dwmapi windowsc
 target_link_options(EdgeTuck PRIVATE /MANIFEST:EMBED /MANIFESTINPUT:${CMAKE_CURRENT_SOURCE_DIR}/resources/app.manifest)
 
 enable_testing()
+add_executable(EdgeTuckDesktopLayerTests tests/desktop_layer_tests.cpp)
+target_include_directories(EdgeTuckDesktopLayerTests PRIVATE src)
+target_compile_options(EdgeTuckDesktopLayerTests PRIVATE /W4 /utf-8 /permissive-)
+target_compile_definitions(EdgeTuckDesktopLayerTests PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+target_link_libraries(EdgeTuckDesktopLayerTests PRIVATE user32)
+add_test(NAME desktop_layer COMMAND EdgeTuckDesktopLayerTests)
 add_executable(EdgeTuckRenameTests tests/archive_rename_tests.cpp src/archive_rename.cpp src/storage_move.cpp src/archive.cpp src/shell_files.cpp)
 target_link_libraries(EdgeTuckRenameTests PRIVATE edgetuck_core)
 target_compile_options(EdgeTuckRenameTests PRIVATE /W4 /utf-8 /permissive-)

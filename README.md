@@ -13,7 +13,7 @@
 
 每个抽屉背后都是一个**普通文件夹**。整理好的文件可以直接在资源管理器中访问，即使以后不再使用轻屉，也能保留原来的分类。
 
-> 当前版本：**0.8.10 · 开发预览**。面向 Windows 11 22H2 及以上版本的 x64 系统，目前围绕主显示器工作区布局。
+> 当前版本：**0.8.11 · 开发预览**。面向 Windows 11 22H2 及以上版本的 x64 系统，目前围绕主显示器工作区布局。
 
 ![液态玻璃抽屉展开效果](docs/assets/drawer.png)
 
@@ -50,7 +50,7 @@
 
 ## 开始使用
 
-从 [Releases 页面](https://github.com/HavrenL/EdgeTuck/releases/tag/v0.8.10) 下载 `EdgeTuck-0.8.10-windows-x64.zip`，解压整个目录后双击 `EdgeTuck.exe` 打开设置，无需安装。
+从 [Releases 页面](https://github.com/HavrenL/EdgeTuck/releases/tag/v0.8.11) 下载 `EdgeTuck-0.8.11-windows-x64.zip`，解压整个目录后双击 `EdgeTuck.exe` 打开设置，无需安装。
 
 目前提供开发预览版，系统要求和已知限制见下文。也可以按[源码构建说明](#从源码构建)自行编译。
 

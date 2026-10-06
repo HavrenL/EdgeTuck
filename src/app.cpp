@@ -1,4 +1,5 @@
 #include "app.hpp"
+#include "desktop_layer.hpp"
 #include "drop_target.hpp"
 #include "desktop_grid.hpp"
 #include "diagnostics.hpp"
@@ -51,7 +52,7 @@ App::~App() {
     sort_queue.stop();
     file_watch.clear();
     if(broker) KillTimer(broker,folder_timer);
-    if(icon_hook) UnhookWinEvent(icon_hook);
+    if(reorder_hook) UnhookWinEvent(reorder_hook);
     if(!smoke && save_allowed) for(auto& d:settings.drawers) restore_folder_icon(d);
     if(graphics.composition) graphics.composition->live_active(false,broker,WM_EDGE_LIVE_FRAME);
     if(test_background) DestroyWindow(test_background);
@@ -120,7 +121,9 @@ int App::run(bool smoke_test, bool start_hidden, bool force_fallback, bool mater
     desktop_hook = SetWinEventHook(EVENT_SYSTEM_DESKTOPSWITCH, EVENT_SYSTEM_DESKTOPSWITCH, nullptr, event_proc, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
     destroy_hook = SetWinEventHook(EVENT_OBJECT_SHOW, EVENT_OBJECT_HIDE, nullptr, event_proc, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
     location_hook = SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, nullptr, event_proc, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
-    if(!smoke) icon_hook=SetWinEventHook(EVENT_OBJECT_REORDER,EVENT_OBJECT_REORDER,nullptr,event_proc,0,0,WINEVENT_OUTOFCONTEXT|WINEVENT_SKIPOWNPROCESS);
+    // Also observe the final Show Desktop ordering in isolated previews. Those
+    // profiles still ignore icon notifications and never park user folders.
+    reorder_hook=SetWinEventHook(EVENT_OBJECT_REORDER,EVENT_OBJECT_REORDER,nullptr,event_proc,0,0,WINEVENT_OUTOFCONTEXT|WINEVENT_SKIPOWNPROCESS);
     desktop_order();
     if (smoke_test || test_live) SetTimer(broker, smoke_timer, test_live?500:350, nullptr);
     else if (!start_hidden) show_control();
@@ -352,6 +355,7 @@ void App::desktop_order() {
         return TRUE;
     }, reinterpret_cast<LPARAM>(&desktop));
     if (!desktop) desktop = GetShellWindow();
+    desktop_host = desktop;
     if (!desktop) { for (auto& d : drawers) ShowWindow(d->panel, SW_HIDE); return; }
     HWND anchor = GetWindow(desktop, GW_HWNDPREV);
     while (anchor && own_window(anchor)) anchor = GetWindow(anchor, GW_HWNDPREV);
@@ -401,6 +405,21 @@ void App::apply_live_mode() {
 }
 void App::event_proc(HWINEVENTHOOK, DWORD event, HWND hwnd, LONG object, LONG child, DWORD thread, DWORD) {
     if (!active_app || active_app->quitting) return;
+    if (event == EVENT_OBJECT_REORDER && hwnd == GetDesktopWindow() &&
+        object == OBJID_CLIENT && child == CHILDID_SELF) {
+        // Show Desktop raises Explorer after its foreground event. Observe the
+        // completed top-level reorder using the existing icon-event hook. Only
+        // repair drawers left below the desktop, so our own SetWindowPos calls
+        // cannot create an event loop or pull drawers over application windows.
+        if (!active_app->desktop_order_pending && active_app->desktop_host) {
+            std::vector<HWND> panels;
+            panels.reserve(active_app->drawers.size());
+            for (const auto& drawer : active_app->drawers) panels.push_back(drawer->panel);
+            if (drawers_below_desktop(active_app->desktop_host, panels))
+                active_app->desktop_order_pending = PostMessageW(active_app->broker, WM_EDGE_SYNC, 0, 0) != FALSE;
+        }
+        return;
+    }
     if(event>=EVENT_SYSTEM_MENUSTART && event<=EVENT_SYSTEM_MENUPOPUPEND) return;
     if(event==EVENT_SYSTEM_CAPTURESTART || event==EVENT_SYSTEM_CAPTUREEND) {
         if(active_app->smoke || object!=OBJID_WINDOW || child!=CHILDID_SELF) return;
@@ -423,7 +442,10 @@ void App::event_proc(HWINEVENTHOOK, DWORD event, HWND hwnd, LONG object, LONG ch
         }
         return;
     }
-    if(desktop_icon_event(hwnd,object)) { PostMessageW(active_app->broker,WM_EDGE_FOLDERS,0,0); return; }
+    if(desktop_icon_event(hwnd,object)) {
+        if(!active_app->smoke) PostMessageW(active_app->broker,WM_EDGE_FOLDERS,0,0);
+        return;
+    }
     if (event >= EVENT_OBJECT_CREATE && (object != OBJID_WINDOW || child != CHILDID_SELF || !hwnd || GetAncestor(hwnd, GA_ROOT) != hwnd)) return;
     if(event==EVENT_OBJECT_LOCATIONCHANGE) {
         // A maximized foreground window can be restored without changing the
@@ -930,6 +952,7 @@ LRESULT App::window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) 
         return 0;
     case WM_EDGE_DEFERRED: app->finish_interaction(); return 0;
     case WM_EDGE_SYNC:
+        app->desktop_order_pending = false;
         for (auto& d : app->drawers) if (d->preview && !own_window(GetForegroundWindow())) { d->preview = false; d->set_open(false); }
         app->desktop_order(); return 0;
     case WM_EDGE_REMOVE: if(!app->interaction_depth) app->remove_drawer(static_cast<int>(wparam)); return 0;

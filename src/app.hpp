@@ -134,7 +134,9 @@ public:
     StartupStatus startup;
     HWINEVENTHOOK foreground_hook{}, desktop_hook{}, destroy_hook{},location_hook{};
     bool capture_sync_pending{};
-    HWINEVENTHOOK icon_hook{};
+    HWND desktop_host{};
+    bool desktop_order_pending{};
+    HWINEVENTHOOK reorder_hook{};
     HWND desktop_capture_source{};
     bool storage_migrating{};
     bool folders_dirty{}, folder_sync_pending{}, syncing_folders{};
